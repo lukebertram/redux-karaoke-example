@@ -29,7 +29,7 @@ const initialState = {
     3: {
       title: "What's Goin' On",
       artist: "Four Non-Blondes",
-      songId: 2,
+      songId: 3,
       songArray: songList[3],
       arrayPosition: 0,
     }
@@ -81,6 +81,16 @@ const songChangeReducer = (state = initialState.currentSongId, action) => {
   }
 }
 
+const rootReducer = this.Redux.combineReducers({
+  currentSongId: songChangeReducer,
+  songsById: lyricChangeReducer
+});
+
+
+// REDUX STORE
+const { createStore } = Redux;
+const store = createStore(rootReducer);
+
 // JEST TESTS & SETUP
 const { expect } = window;
 
@@ -105,22 +115,19 @@ expect(lyricChangeReducer(initialState.songsById, { type: 'NEXT_LYRIC', currentS
   3: {
     title: "What's Goin' On",
     artist: "Four Non-Blondes",
-    songId: 2,
+    songId: 3,
     songArray: songList[3],
     arrayPosition: 0,
   }
 });
 
-expect(lyricChangeReducer(
-  initialState.songsById,
-  { type: 'RESTART_SONG', currentSongId: 1 }
-)).toEqual({
+expect(lyricChangeReducer({
   1: {
     title: "Funtimes in Babylon",
     artist: "Father John Misty",
     songId: 1,
     songArray: songList[1],
-    arrayPosition: 0,
+    arrayPosition: 5,
   },
   2: {
     title: "No Surprises",
@@ -132,52 +139,93 @@ expect(lyricChangeReducer(
   3: {
     title: "What's Goin' On",
     artist: "Four Non-Blondes",
-    songId: 2,
+    songId: 3,
     songArray: songList[3],
     arrayPosition: 0,
   }
-});
+}, { type: 'RESTART_SONG', currentSongId: 1 })).toEqual(initialState.songsById);
 
   //tests for SONG CHANGE REDUCER
 expect(songChangeReducer(initialState, { type: null })).toEqual(initialState);
 
 expect(songChangeReducer(initialState, { type: 'CHANGE_SONG', newSelectedSongId: 1})).toEqual(1);
 
-// REDUX STORE
-const { createStore } = Redux;
-const store = createStore(lyricChangeReducer);
+  //test for REDUCER COMBINATION
+expect(rootReducer(initialState, { type: null })).toEqual(initialState);
 
-// // RENDERING STATE IN DOM
-// const renderLyrics = () => {
-//   // definds a lyricsDisplay constat referring to the div with a 'lyrics' ID in index.html
-//   const lyricsDisplay = document.getElementById('lyrics');
-//   //if there are already lyrics in this div, remove them one-by-one until it is empty:
-//   while (lyricsDisplay.firstChild) {
-//     lyricsDisplay.removeChild(lyricsDisplay.firstChild);
-//   }
-//   // Locates the song lyric at the current arrayPosition:
-//   const currentLine = store.getState().songLyricsArray[store.getState().arrayPosition];
-//   // Creates DOM text node containing the song lyric identified in line above:
-//   const renderedLine = document.createTextNode(currentLine);
-//   // Adds text node created in line above to 'lyrics' div in DOM
-//   document.getElementById('lyrics').appendChild(renderedLine);
-// }
-//
-// // runs renderLyrics() method from above when page is finished loading.
-// //window.onload is the HTML5 version of jQuery's $(document).ready()
-// window.onload = function() {
-//   renderLyrics();
-// }
-//
-// // CLICK LISTENER
-// const userClick = () => {
-//   const currentState = store.getState();
-//   if (currentState.arrayPosition === currentState.songLyricsArray.length - 1){
-//     store.dispatch({ type: 'RESTART_SONG' });
-//   } else {
-//     store.dispatch({ type: 'NEXT_LYRIC' });
-//   }
-// }
-//
-// // SUBSCRIBE TO REDUX STORE
-// store.subscribe(renderLyrics);
+expect(store.getState().currentSongId).toEqual(songChangeReducer(undefined, { type: null}));
+expect(store.getState().songsById).toEqual(lyricChangeReducer(undefined, { type: null }));
+
+
+// RENDERING STATE IN DOM
+const renderSongs = () => {
+  console.log(`renderSongs METHOD FUCKIN FIRED, DAWG!`);
+  console.log(store.getState());
+  const songsById = store.getState().songsById;
+  for (const songKey in songsById) {
+    const song = songsById[songKey];
+    const li = document.createElement('li');
+    const h3 = document.createElement('h3');
+    const em = document.createElement('em');
+    const songTitle = document.createTextNode(song.title);
+    const songArtist = document.createTextNode(` by ${song.artist}`);
+    em.appendChild(songTitle);
+    h3.appendChild(em);
+    h3.appendChild(songArtist);
+    h3.addEventListener('click', function() {
+      selectSong(song.songId);
+    });
+    li.appendChild(h3);
+    document.getElementById('songs').appendChild(li);
+  }
+}
+
+const renderLyrics = () => {
+  // definds a lyricsDisplay constat referring to the div with a 'lyrics' ID in index.html
+  const lyricsDisplay = document.getElementById('lyrics');
+  //if there are already lyrics in this div, remove them one-by-one until it is empty:
+  while (lyricsDisplay.firstChild) {
+    lyricsDisplay.removeChild(lyricsDisplay.firstChild);
+  }
+  if (store.getState().currentSongId) {
+    const state = store.getState();
+    const currentLine = document.createTextNode(
+      state.songsById[state.currentSongId].songArray[state.songsById[state.currentSongId].arrayPosition]);
+    document.getElementById('lyrics').appendChild(currentLine);
+  } else {
+    const selectSongMessage = document.createTextNode("Select a song from the menu above to sing along!");
+    document.getElementById('lyrics').appendChild(selectSongMessage);
+  }
+}
+
+// runs renderLyrics() method from above when page is finished loading.
+//window.onload is the HTML5 version of jQuery's $(document).ready()
+window.onload = function() {
+  renderSongs();
+  renderLyrics();
+}
+
+// CLICK LISTENERs
+const userClick = () => {
+  const currentState = store.getState();
+  if (currentState.songsById[currentState.currentSongId].arrayPosition === currentState.songsById[currentState.currentSongId].songArray.length - 1){
+    store.dispatch({
+      type: 'RESTART_SONG',
+      currentSongId: currentState.currentSongId });
+  } else {
+    store.dispatch({
+      type: 'NEXT_LYRIC',
+      currentSongId: currentState.currentSongId });
+  }
+}
+
+const selectSong = (newSongId) => {
+  let action = {
+    type: 'CHANGE_SONG',
+    newSelectedSongId: newSongId
+  }
+  store.dispatch(action);
+}
+
+// SUBSCRIBE TO REDUX STORE
+store.subscribe(renderLyrics);
